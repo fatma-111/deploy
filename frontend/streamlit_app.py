@@ -131,6 +131,10 @@ with right:
         "Dependencies", value=", ".join(prefill("dependencies", []) or [])
     )
     repository_url = col_d.text_input("Repository URL", value=prefill("repository_url"))
+    notify_email = st.text_input(
+        "Email this report to (via n8n)",
+        placeholder="you@example.com — leave blank to skip",
+    )
 
 run = st.button("🐾 Investigate bug", type="primary", use_container_width=True)
 
@@ -151,6 +155,7 @@ if run:
         "framework": framework or None,
         "repository_url": repository_url or None,
         "dependencies": [d.strip() for d in dependencies.split(",") if d.strip()],
+        "notify_email": notify_email.strip() or None,
     }
 
     with st.status("Running the agent pipeline…", expanded=True) as status:
@@ -172,6 +177,15 @@ if result:
     m2.metric("Confidence", f"{result.get('confidence', 0) * 100:.0f}%")
     m3.metric("Review", review.get("decision", "N/A"))
     m4.metric("Validation", validation.get("status", "SKIPPED"))
+
+    if notify_email.strip():
+        if result.get("notified"):
+            st.success(f"Report emailed to {notify_email.strip()} via n8n.")
+        else:
+            st.warning(
+                "Could not email the report. Check N8N_WEBHOOK_URL and that the "
+                "n8n workflow is active."
+            )
 
     st.progress(min(1.0, float(result.get("confidence", 0))))
 
