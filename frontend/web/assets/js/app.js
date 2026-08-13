@@ -396,6 +396,13 @@
       badge.className = `pill ${approved ? "pill-good" : "pill-warn"}`;
     }
 
+    const requestedEmail = $("#in-notify-email")?.value.trim();
+    if (requestedEmail && result.notified) {
+      toast(`Report emailed to ${requestedEmail}`);
+    } else if (requestedEmail && !result.notified) {
+      toast("Could not email the report — check the n8n webhook and workflow");
+    }
+
     $("#rail-status").textContent = result.kb_hit
       ? `${ms(result.duration_ms)} · served from cache, no model call`
       : `${ms(result.duration_ms)} · ${result.trace?.length || 0} stages`;
@@ -449,6 +456,7 @@
       dependencies: val("#in-deps")
         ? val("#in-deps").split(/[,\n]/).map((d) => d.trim()).filter(Boolean)
         : [],
+      notify_email: val("#in-notify-email") || null,
     };
   }
 
@@ -754,9 +762,20 @@
     </p>`;
   }
 
+  /* --------------------------------------------------------- capabilities */
+  async function loadCapabilities() {
+    try {
+      const health = await api("/health");
+      $("#field-notify").hidden = !health.email_notifications_configured;
+    } catch {
+      // Leave the field hidden; the dashboard still works without it.
+    }
+  }
+
   /* ----------------------------------------------------------------- init */
   resetRail();
   renderGraph();
   loadSamples();
   loadMetrics();
+  loadCapabilities();
 })();
