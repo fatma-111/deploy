@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BugHound — AI Bug Investigation Agent</title>
+<meta name="description" content="Multi-agent bug investigation: debug, research, root cause, fix, independent review and static validation." />
+<link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/assets/css/app.css" />
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============================== sidebar ============================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="/assets/img/logo.svg" alt="" width="34" height="34" />
+      <div class="brand-text">
+        <span class="brand-name">Bug<span>Hound</span></span>
+        <span class="brand-sub">Investigation agent</span>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="Main">
+      <button class="nav-item is-active" data-view="dashboard">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6.2 8 2l6 4.2V14H9.8v-3.6H6.2V14H2z"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" data-view="investigate">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7 1a6 6 0 1 1-3.7 10.7L1 14l2.3-2.3A6 6 0 0 1 7 1zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>
+        New investigation
+      </button>
+      <button class="nav-item" data-view="feed">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v2H2zM2 7h12v2H2zM2 11h8v2H2z"/></svg>
+        Bug traffic
+      </button>
+
+      <p class="nav-label">Pipeline</p>
+      <button class="nav-item" data-view="pipeline">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2h4v3H3zM9 6h4v3H9zM3 10h4v3H3zM7 3.5h2v1H7zM7 11.5h2v1H7z"/></svg>
+        Agent graph
+      </button>
+      <button class="nav-item" data-view="evidence">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1h5l3 3v11H4zM9 1v3h3"/></svg>
+        Evidence &amp; sources
+      </button>
+      <button class="nav-item" data-view="knowledge">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 2 4v6l6 5 6-5V4zM8 3.2 12 5.4v4.3L8 12.8l-4-3.1V5.4z"/></svg>
+        Knowledge base
+      </button>
+
+      <p class="nav-label">System</p>
+      <button class="nav-item" data-view="settings">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 5.5A2.5 2.5 0 1 0 8 10.5 2.5 2.5 0 0 0 8 5.5zM7 1h2l.3 1.7 1.5.6 1.4-1 1.4 1.4-1 1.4.6 1.5L15 7v2l-1.7.3-.6 1.5 1 1.4-1.4 1.4-1.4-1-1.5.6L9 15H7l-.3-1.7-1.5-.6-1.4 1L2.4 12.3l1-1.4-.6-1.5L1 9V7l1.7-.3.6-1.5-1-1.4 1.4-1.4 1.4 1 1.5-.6z"/></svg>
+        Runtime
+      </button>
+    </nav>
+
+    <div class="side-card">
+      <span class="side-card-title">Model</span>
+      <span class="side-card-value" id="side-model">loading…</span>
+      <span class="pill pill-ghost" id="side-mode">checking</span>
+    </div>
+  </aside>
+
+  <!-- ============================== main ============================== -->
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menu-btn" aria-label="Toggle navigation">
+        <svg viewBox="0 0 16 16"><path d="M2 4h12v1.6H2zM2 7.2h12v1.6H2zM2 10.4h12V12H2z"/></svg>
+      </button>
+      <h1 class="topbar-title">AI BUG INVESTIGATION AGENT</h1>
+      <div class="topbar-right">
+        <span class="chip" id="chip-env">runtime</span>
+        <button class="icon-btn" id="btn-refresh" aria-label="Refresh dashboard data" title="Refresh">
+          <svg viewBox="0 0 16 16"><path d="M8 3V1L5 3.5 8 6V4a3.5 3.5 0 1 1-3.4 4.4l-1.5.4A5 5 0 1 0 8 3z"/></svg>
+        </button>
+        <div class="avatar" aria-hidden="true">BH</div>
+      </div>
+    </header>
+
+    <!-- ---------------------------- dashboard ---------------------------- -->
+    <main class="view is-active" id="view-dashboard">
+      <div class="view-head">
+        <h2>Dashboard</h2>
+        <div class="stat-pills">
+          <span class="pill pill-soft"><b id="kpi-active">0</b> active issues</span>
+          <span class="pill pill-solid"><b id="kpi-rate">0%</b> resolved</span>
+          <span class="pill pill-good"><b id="kpi-kb-rate">0%</b> from cache</span>
+        </div>
+      </div>
+
+      <section class="grid grid-2">
+        <article class="card">
+          <div class="card-head">
+            <h3>Bug traffic</h3>
+            <span class="card-note">confidence per investigation</span>
+          </div>
+          <div class="card-body">
+            <div class="metric-row">
+              <div class="metric">
+                <span class="metric-label">Investigations</span>
+                <b class="metric-value" id="kpi-total">0</b>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Avg confidence</span>
+                <b class="metric-value" id="kpi-conf">—</b>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Avg runtime</span>
+                <b class="metric-value" id="kpi-time">—</b>
+              </div>
+            </div>
+            <div class="chart-wrap" id="chart-line"></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <h3>Errors by type</h3>
+            <span class="card-note" id="donut-note">no data yet</span>
+          </div>
+          <div class="card-body donut-body">
+            <div class="chart-wrap donut" id="chart-donut"></div>
+            <ul class="legend" id="donut-legend"></ul>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid grid-2 grid-wide-left">
+        <article class="card">
+          <div class="card-head">
+            <h3>Live bug feed</h3>
+            <span class="card-note">this process only, cleared on restart</span>
+          </div>
+          <div class="card-body no-pad">
+            <div class="table-scroll">
+              <table class="table">
+                <thead>
+                  <tr><th>ID</th><th>Status</th><th>Error</th><th>Confidence</th><th>Review</th></tr>
+                </thead>
+                <tbody id="feed-body">
+                  <tr class="empty-row"><td colspan="5">No investigations yet. Run one to populate the feed.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h3>Agent notes</h3></div>
+          <div class="card-body" id="suggestions">
+            <div class="note">
+              <span class="note-tag">Getting started</span>
+              <p class="note-body">Open <b>New investigation</b>, load a sample bug and watch the six agents run. Every stage reports what it found.</p>
+            </div>
+            <div class="note">
+              <span class="note-tag">How routing works</span>
+              <p class="note-body">Below the confidence threshold the case goes back to research instead of guessing a fix. Rejected fixes return to the Fix Agent.</p>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <!-- --------------------------- investigate --------------------------- -->
+    <main class="view" id="view-investigate">
+      <div class="view-head">
+        <h2>New investigation</h2>
+        <div class="stat-pills">
+          <select class="select" id="sample-select" aria-label="Load a sample bug">
+            <option value="">Load a sample bug…</option>
+          </select>
+          <button class="btn btn-primary" id="btn-run">Investigate bug</button>
+        </div>
+      </div>
+
+      <section class="grid grid-2 grid-wide-left">
+        <article class="card">
+          <div class="card-head"><h3>Report the failure</h3><span class="card-note">only the error message is required</span></div>
+          <div class="card-body form">
+            <label class="field">
+              <span>Error message</span>
+              <textarea id="in-error" rows="3" placeholder="ModuleNotFoundError: No module named 'langchain.chat_models'"></textarea>
+            </label>
+            <div class="field-row">
+              <label class="field"><span>Language</span><input id="in-language" placeholder="Python" /></label>
+              <label class="field"><span>Framework</span><input id="in-framework" placeholder="LangChain" /></label>
+            </div>
+            <label class="field">
+              <span>Stack trace</span>
+              <textarea id="in-trace" rows="5" class="mono" placeholder="Traceback (most recent call last): …"></textarea>
+            </label>
+            <label class="field">
+              <span>Source code</span>
+              <textarea id="in-code" rows="5" class="mono" placeholder="The failing file or the relevant snippet"></textarea>
+            </label>
+            <label class="field">
+              <span>Logs</span>
+              <textarea id="in-logs" rows="3" class="mono" placeholder="Application logs around the failure"></textarea>
+            </label>
+            <div class="field-row">
+              <label class="field"><span>Dependencies</span><input id="in-deps" placeholder="langchain==0.3.7, langchain-openai==0.2.5" /></label>
+              <label class="field"><span>Repository URL</span><input id="in-repo" placeholder="https://github.com/owner/repo" /></label>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card-rail">
+          <div class="card-head"><h3>Pipeline</h3><span class="card-note" id="rail-status">idle</span></div>
+          <div class="card-body">
+            <ol class="rail" id="rail"></ol>
+            <div class="confidence-gate" id="gate">
+              <span class="gate-label">Confidence gate</span>
+              <div class="gauge"><div class="gauge-fill" id="gauge-fill"></div><div class="gauge-mark" id="gauge-mark"></div></div>
+              <div class="gate-foot"><span id="gate-value">—</span><span id="gate-threshold">threshold 80%</span></div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="card report-card" id="report-card" hidden>
+        <div class="card-head">
+          <h3>Investigation report</h3>
+          <div class="report-actions">
+            <span class="pill" id="report-status">completed</span>
+            <button class="btn btn-ghost" id="btn-copy">Copy report</button>
+          </div>
+        </div>
+        <div class="card-body report" id="report"></div>
+      </section>
+    </main>
+
+    <!-- ------------------------------ feed ------------------------------ -->
+    <main class="view" id="view-feed">
+      <div class="view-head"><h2>Bug traffic</h2><span class="card-note">every investigation handled by this process</span></div>
+      <section class="card">
+        <div class="card-body no-pad">
+          <div class="table-scroll">
+            <table class="table">
+              <thead><tr><th>ID</th><th>Status</th><th>Error</th><th>Severity</th><th>Confidence</th><th>Review</th><th>Runtime</th></tr></thead>
+              <tbody id="feed-full"><tr class="empty-row"><td colspan="7">Nothing here yet.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ---------------------------- pipeline ---------------------------- -->
+    <main class="view" id="view-pipeline">
+      <div class="view-head"><h2>Agent graph</h2><span class="card-note">LangGraph nodes and the two conditional edges</span></div>
+      <section class="card">
+        <div class="card-body" id="graph-diagram"></div>
+      </section>
+    </main>
+
+    <!-- ---------------------------- evidence ---------------------------- -->
+    <main class="view" id="view-evidence">
+      <div class="view-head"><h2>Evidence &amp; sources</h2><span class="card-note">from the most recent investigation</span></div>
+      <section class="card">
+        <div class="card-body" id="evidence-body">
+          <p class="muted">Run an investigation to collect sources.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- ---------------------------- knowledge base ---------------------------- -->
+    <main class="view" id="view-knowledge">
+      <div class="view-head">
+        <h2>Knowledge base</h2>
+        <span class="card-note">local RAG — repeated errors skip the model entirely</span>
+      </div>
+
+      <section class="grid grid-2">
+        <article class="card">
+          <div class="card-head"><h3>Coverage</h3></div>
+          <div class="card-body">
+            <div class="metric-row">
+              <div class="metric">
+                <span class="metric-label">Seed patterns</span>
+                <b class="metric-value" id="kb-seed-count">0</b>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Learned this session</span>
+                <b class="metric-value" id="kb-learned-count">0</b>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Match threshold</span>
+                <b class="metric-value" id="kb-threshold">—</b>
+              </div>
+            </div>
+            <p class="muted" style="margin-top:6px;font-size:12px">
+              Seed patterns come from <code>error_knowledge_base.pdf</code>, extracted at
+              build time. Learned patterns are cases this process solved and approved itself.
+            </p>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><h3>By framework</h3></div>
+          <div class="card-body">
+            <ul class="legend" id="kb-framework-legend"></ul>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h3>Try a lookup</h3>
+          <span class="card-note">preview a match without running a full investigation</span>
+        </div>
+        <div class="card-body form">
+          <label class="field">
+            <span>Error message</span>
+            <input id="kb-search-input" placeholder="e.g. No module named 'langchain.chat_models'" />
+          </label>
+          <button class="btn btn-primary" id="btn-kb-search" style="align-self:flex-start">Search</button>
+          <div id="kb-search-result" style="margin-top:12px"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ---------------------------- settings ---------------------------- -->
+    <main class="view" id="view-settings">
+      <div class="view-head"><h2>Runtime</h2><span class="card-note">read-only, driven by environment variables</span></div>
+      <section class="grid grid-2">
+        <article class="card"><div class="card-head"><h3>Configuration</h3></div>
+          <div class="card-body"><dl class="kv" id="config-kv"></dl></div>
+        </article>
+        <article class="card">
+          <div class="card-head">
+            <h3>Free models available now</h3>
+            <button class="btn btn-ghost" id="btn-models">Refresh</button>
+          </div>
+          <div class="card-body" id="models-body">
+            <p class="muted">Checking OpenRouter…</p>
+          </div>
+        </article>
+        <article class="card"><div class="card-head"><h3>Architecture</h3></div>
+          <div class="card-body">
+            <dl class="kv">
+              <dt>Orchestration</dt><dd>LangGraph, conditional routing, capped loops</dd>
+              <dt>Persistence</dt><dd>None. No database, no checkpointer</dd>
+              <dt>Validation</dt><dd>Static only. User code is never executed</dd>
+              <dt>Research</dt><dd>Free web search, public GitHub API, PyPI and npm</dd>
+              <dt>Secrets</dt><dd>Environment variables only</dd>
+            </dl>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="/assets/js/app.js"></script>
+</body>
+</html>

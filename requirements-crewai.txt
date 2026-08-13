@@ -1,0 +1,8 @@
+# Optional CrewAI orchestrator: pip install -r requirements-crewai.txt
+#
+# Only needed when ORCHESTRATOR=crewai. Kept out of requirements.txt on purpose:
+# crewai pulls in chromadb and onnxruntime, which take the installed footprint
+# from roughly 150 MB to roughly 880 MB. Every crew in this project sets
+# memory=False, so ChromaDB is never actually used — it just ships.
+-r requirements.txt
+crewai==1.15.15
