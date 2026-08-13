@@ -33,6 +33,7 @@ from app.models.schemas import (
 from app.services import activity
 from app.services.knowledge_base import knowledge_base
 from app.services.model_catalog import catalog_summary
+from app.services.notifications import notify_report
 from app.services.samples import SAMPLES
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,9 @@ def health() -> HealthResponse:
         provider=settings.provider_name,
         orchestrator=backend_status(),
         knowledge_base_seed_entries=knowledge_base.stats()["seed_count"],
+        email_notifications_configured=bool(
+            settings.n8n_webhook_enabled and settings.n8n_webhook_url
+        ),
     )
 
 
@@ -103,6 +107,11 @@ def investigate(request: InvestigationRequest) -> InvestigationResponse:
     response = to_response(state)
     payload = response.model_dump(mode="json")
     payload["_language"] = request.language
+
+    notified = notify_report(to=request.notify_email, response=payload)
+    response.notified = notified
+    payload["notified"] = notified
+
     activity.record(payload)
     return response
 
@@ -133,6 +142,10 @@ def investigate_stream(request: InvestigationRequest) -> StreamingResponse:
             response = to_response(final_state)
             payload = response.model_dump(mode="json")
             payload["_language"] = request.language
+
+            notified = notify_report(to=request.notify_email, response=payload)
+            payload["notified"] = notified
+
             activity.record(payload)
             yield f"data: {json.dumps({'type': 'result', 'result': payload})}\n\n"
         except Exception as exc:  # noqa: BLE001
