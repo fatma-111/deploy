@@ -11,6 +11,11 @@ langgraph==0.2.60
 langchain-core==0.3.28
 langchain-openai==0.2.14
 
+# --- local RAG / knowledge base ----------------------------------------------
+# TF-IDF retrieval for the repeated-error cache (app/services/knowledge_base.py).
+# Pulls numpy + scipy transitively; no torch, no embedding model, no GPU.
+scikit-learn==1.5.2
+
 # --- UI (optional second process) -------------------------------------------
 streamlit==1.41.1
 
