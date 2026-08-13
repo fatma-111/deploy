@@ -71,6 +71,9 @@ class InvestigationRequest(BaseModel):
     repository_url: Optional[str] = None
     dependencies: List[str] = Field(default_factory=list)
     environment: Optional[str] = None
+    notify_email: Optional[str] = Field(
+        default=None, description="If set, the finished report is emailed here via n8n."
+    )
 
     @field_validator("error_message")
     @classmethod
@@ -238,6 +241,7 @@ class InvestigationResponse(BaseModel):
     demo_mode: bool = False
     orchestrator: str = "langgraph"
     kb_hit: bool = False
+    notified: bool = False
     final_response: str = ""
 
 
@@ -253,3 +257,4 @@ class HealthResponse(BaseModel):
     provider: str = "openrouter"
     orchestrator: dict = Field(default_factory=dict)
     knowledge_base_seed_entries: int = 0
+    email_notifications_configured: bool = False
