@@ -86,6 +86,17 @@ class Settings(BaseSettings):
     # a shaky diagnosis should not become tomorrow's cached "known pattern".
     kb_learn_min_confidence: float = Field(default=0.80, alias="KB_LEARN_MIN_CONFIDENCE")
 
+    # -------------------------------------------------- email via n8n webhook
+    # BugHound never touches SMTP directly. It POSTs the finished report to an
+    # n8n workflow's webhook; n8n's own Send Email node (SMTP credentials
+    # configured inside n8n, never here) delivers it. See n8n/README.md.
+    n8n_webhook_enabled: bool = Field(default=False, alias="N8N_WEBHOOK_ENABLED")
+    n8n_webhook_url: str = Field(default="", alias="N8N_WEBHOOK_URL")
+    n8n_webhook_timeout_seconds: int = Field(default=10, alias="N8N_WEBHOOK_TIMEOUT_SECONDS")
+    # Used when a request doesn't specify notify_email. Leave blank to require
+    # the caller to supply an address every time.
+    notify_default_email: str = Field(default="", alias="NOTIFY_DEFAULT_EMAIL")
+
     # ------------------------------------------------------------- tools
     github_token: str = Field(default="", alias="GITHUB_TOKEN")
     github_api_url: str = "https://api.github.com"
