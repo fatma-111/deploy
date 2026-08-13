@@ -29,14 +29,26 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "frontend" / "web"
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    from app.services.knowledge_base import knowledge_base
+
+    kb_stats = knowledge_base.stats()
     logger.info(
-        "%s %s started | model=%s | demo_mode=%s | github_token=%s",
+        "%s %s started | model=%s | demo_mode=%s | github_token=%s | "
+        "orchestrator=%s | knowledge_base_seed_entries=%d",
         settings.app_name,
         settings.version,
         settings.openrouter_model,
         settings.effective_demo_mode,
         bool(settings.github_token),
+        settings.orchestrator,
+        kb_stats["seed_count"],
     )
+    if settings.kb_enabled and kb_stats["seed_count"] == 0:
+        logger.warning(
+            "Knowledge base is enabled but loaded 0 seed entries. Check that "
+            "data/knowledge_base_seed.json shipped in this image (the Dockerfile "
+            "must COPY data ./data)."
+        )
     yield
 
 
