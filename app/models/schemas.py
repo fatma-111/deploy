@@ -252,3 +252,4 @@ class HealthResponse(BaseModel):
     model: str = ""
     provider: str = "openrouter"
     orchestrator: dict = Field(default_factory=dict)
+    knowledge_base_seed_entries: int = 0
