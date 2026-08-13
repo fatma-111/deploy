@@ -1,0 +1,103 @@
+"""Email delivery via an n8n webhook.
+
+BugHound never holds SMTP credentials and never talks to a mail server
+directly. It POSTs the finished report as JSON to a webhook URL that you point
+at an n8n workflow (see ``n8n/bughound-email-report.json`` for one to import).
+Inside n8n, a built-in Markdown node renders the report and a Send Email node
+— configured with your own SMTP credentials, entirely inside n8n's credential
+manager — delivers it. This keeps every mail secret out of BugHound's
+environment entirely; the only thing BugHound holds is a webhook URL.
+
+This module is called from exactly one place regardless of which orchestrator
+produced the report (``app/api/routes.py``), so the behaviour is identical
+whether LangGraph or CrewAI ran the investigation.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from typing import Any, Dict, Optional
+
+import httpx
+
+from app.config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+# Deliberately simple: good enough to catch obvious typos without pulling in
+# an email-validation dependency for one optional feature.
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def is_valid_email(value: str) -> bool:
+    return bool(_EMAIL_RE.match((value or "").strip()))
+
+
+def _resolve_recipient(explicit: Optional[str]) -> Optional[str]:
+    candidate = (explicit or settings.notify_default_email or "").strip()
+    if not candidate:
+        return None
+    if not is_valid_email(candidate):
+        logger.warning("Refusing to notify an invalid-looking address: %r", candidate)
+        return None
+    return candidate
+
+
+def build_payload(recipient: str, response: Dict[str, Any]) -> Dict[str, Any]:
+    """The JSON body n8n's Webhook node receives.
+
+    Keep this stable: it's the contract between BugHound and the workflow in
+    n8n/bughound-email-report.json. ``report_markdown`` is rendered to HTML by
+    n8n's own Markdown node, so nothing here needs a markdown-to-HTML
+    dependency on the Python side.
+    """
+    error_type = response.get("error_type", "Unknown")
+    status = response.get("status", "completed")
+    confidence = response.get("confidence", 0.0) or 0.0
+    review = response.get("review") or {}
+
+    return {
+        "to": recipient,
+        "subject": f"BugHound report - {error_type} ({status})",
+        "investigation_id": response.get("investigation_id", ""),
+        "status": status,
+        "error_type": error_type,
+        "confidence": confidence,
+        "confidence_pct": f"{confidence:.0%}",
+        "risk": response.get("risk", "MEDIUM"),
+        "review_decision": review.get("decision", "N/A"),
+        "kb_hit": bool(response.get("kb_hit")),
+        "orchestrator": response.get("orchestrator", "langgraph"),
+        "report_markdown": response.get("final_response", ""),
+    }
+
+
+def notify_report(*, to: Optional[str], response: Dict[str, Any]) -> bool:
+    """POST the report to the configured n8n webhook. Never raises.
+
+    Returns True only on a confirmed 2xx from the webhook, so callers can
+    report an honest success/failure back to the person who asked to be
+    emailed, rather than a fire-and-forget "sure, probably".
+    """
+    if not settings.n8n_webhook_enabled:
+        return False
+    if not settings.n8n_webhook_url:
+        logger.info("N8N_WEBHOOK_ENABLED is true but N8N_WEBHOOK_URL is empty; skipping.")
+        return False
+
+    recipient = _resolve_recipient(to)
+    if not recipient:
+        logger.info("No valid recipient for this report; skipping the n8n notification.")
+        return False
+
+    payload = build_payload(recipient, response)
+    try:
+        with httpx.Client(timeout=settings.n8n_webhook_timeout_seconds) as client:
+            res = client.post(settings.n8n_webhook_url, json=payload)
+            res.raise_for_status()
+        logger.info("Report emailed via n8n webhook to %s", recipient)
+        return True
+    except Exception as exc:  # noqa: BLE001 - a failed notification must not break the report
+        logger.warning("n8n webhook notification failed: %s", exc)
+        return False
