@@ -88,6 +88,7 @@ def health() -> HealthResponse:
         model=settings.openrouter_model,
         provider=settings.provider_name,
         orchestrator=backend_status(),
+        knowledge_base_seed_entries=knowledge_base.stats()["seed_count"],
     )
 
 
